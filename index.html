@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我们的回忆配对</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background-image: url('preview.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+        
+        .game-container {
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #fff;
+            font-size: 2.5rem;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        .memory-game {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin: 0 auto;
+            max-width: 400px;
+        }
+        
+        .memory-card {
+            width: 100%;
+            aspect-ratio: 3/4;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+            cursor: pointer;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        
+        .memory-card.flip {
+            transform: rotateY(180deg);
+        }
+        
+        .memory-card.matched {
+            transform: rotateY(180deg);
+            box-shadow: 0 0 20px rgba(255, 105, 180, 0.8);
+        }
+        
+        .front-face, .back-face {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            backface-visibility: hidden;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .back-face {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            font-size: 3rem;
+        }
+        
+        .front-face {
+            background: #fff;
+            transform: rotateY(180deg);
+            overflow: hidden;
+        }
+        
+        .front-face img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .message {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .message h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+        }
+        
+        .message p {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 1.2rem;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+        
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+            display: none;
+        }
+        
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 20px rgba(255, 105, 180, 0.5);
+            }
+            to {
+                text-shadow: 0 0 30px rgba(255, 105, 180, 0.8), 0 0 40px rgba(255, 105, 180, 0.6);
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2rem;
+                margin-bottom: 20px;
+            }
+            
+            .memory-game {
+                gap: 10px;
+                max-width: 320px;
+            }
+            
+            .back-face {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>我们的回忆配对</h1>
+        <div class="memory-game" id="memory-game">
+            <!-- 卡片将通过JavaScript动态生成 -->
+        </div>
+        <button id="test-win-btn" style="
+            margin-top: 20px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        ">
+            测试胜利消息
+        </button>
+    </div>
+    
+    <div class="overlay" id="overlay"></div>
+    <div class="message" id="message">
+        <h2 id="message-title"></h2>
+        <p id="message-content"></p>
+        <button class="btn" id="message-btn">确定</button>
+    </div>
+    
+    <div class="message" id="win-message">
+        <div style="
+            width: 90vw;
+            max-width: 500px;
+            min-height: 70vh;
+            background: #f8f5e6;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+        ">
+            <!-- 笔记本封面 -->
+            <div id="notebook-cover" style="
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                position: absolute;
+                top: 0;
+                left: 0;
+                transition: transform 1s ease;
+                transform-origin: left center;
+                z-index: 10;
+                cursor: pointer;
+                border-radius: 10px;
+            ">
+                <h2 style="color: white; font-size: 2rem; margin-bottom: 20px;">我的女孩生日快乐</h2>
+                <div style="font-size: 4rem; color: white; margin: 20px 0;">📖</div>
+                <p style="color: white; font-size: 1.2rem;">点击翻开笔记本</p>
+            </div>
+            
+            <!-- 笔记本内页 -->
+            <div id="notebook-pages" style="
+                width: 100%;
+                height: 100%;
+                background: #f8f5e6;
+                position: absolute;
+                top: 0;
+                left: 0;
+                padding: 20px;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                border-radius: 10px;
+            ">
+                <h2 style="color: #ff6b6b; margin-bottom: 20px;">🎉 生日快乐 🎉</h2>
+                
+                <div style="margin: 5px 0; text-align: center; width: 100%;">
+                    <div id="image-container" style="
+                        width: 99%;
+                        max-width: 600px;
+                        margin: 0 auto;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        position: relative;
+                        min-height: 500px;
+                    ">
+                        <img id="current-image" src="image/r1.jpeg" alt="照片1" style="
+                            max-width: 100%; 
+                            max-height: 700px; 
+                            border-radius: 10px;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                            transition: opacity 0.5s ease;
+                        ">
+                    </div>
+                    <div style="display: flex; gap: 15px; margin-top: 30px; justify-content: center;">
+                        <button id="prev-page-btn" style="
+                            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+                            color: white;
+                            border: none;
+                            padding: 12px 24px;
+                            border-radius: 25px;
+                            font-size: 1.1rem;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                        ">上一页</button>
+                        <button id="next-page-btn" style="
+                            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+                            color: white;
+                            border: none;
+                            padding: 12px 24px;
+                            border-radius: 25px;
+                            font-size: 1.1rem;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                        ">下一页</button>
+                    </div>
+                </div>
+                
+                <button class="btn" id="win-btn" style="margin-top: 30px; padding: 12px 24px; font-size: 1.1rem;">爱你哟</button>
+            </div>
+        </div>
+    </div>
+    
+    <audio id="birthday-music" preload="auto">
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="match-sound" preload="auto">
+        <source src="https://www.soundjay.com/buttons/sounds/button-09.mp3" type="audio/mpeg">
+    </audio>
+    
+    <audio id="flip-sound" preload="auto">
+        <source src="music/雲落kyuu天 - Lanota 音效：上一首下一首.mp3" type="audio/mpeg">
+     </audio>
+    
+    <audio id="background-music" preload="auto" loop>
+        <source src="music/风之海.mp3" type="audio/mpeg">
+    </audio>
+    
+
+    
+    <script>
+        const game = document.getElementById('memory-game');
+        const message = document.getElementById('message');
+        const messageTitle = document.getElementById('message-title');
+        const messageContent = document.getElementById('message-content');
+        const messageBtn = document.getElementById('message-btn');
+        const winMessage = document.getElementById('win-message');
+        const winBtn = document.getElementById('win-btn');
+        const overlay = document.getElementById('overlay');
+        const birthdayMusic = document.getElementById('birthday-music');
+        const matchSound = document.getElementById('match-sound');
+        const flipSound = document.getElementById('flip-sound');
+        const backgroundMusic = document.getElementById('background-music');
+        
+        // 卡片数据
+        const cardData = [
+            {
+                name: '照片1',
+                image: 'image/s1.jpg',
+                caption: '这张珊子也是萌物小美女一个，大冬天，珊子十分冷就全副武装，还穿上了毛茸茸小帽子，然后带我一起去吃闽江的蛋糕店！珊子总是带我吃好吃的，真的很好很善良，我记得这个小蛋糕很好吃，珊子也觉得，当时边吃边笑。我在旁边拍照一个大蛋糕吃小蛋糕，这张照片也是萌化我的一张！'
+            },
+            {
+                name: '照片2',
+                image: 'image/s2.jpg',
+                caption: '这个是珊子和我一起吃必胜客的时候拍的，以前没吃过的时候，其实感觉一般般，所以一直也没什么欲望吃，还是珊子带我一起吃我才尝试一下，结果发现很不错！汉堡非常的好吃，吃的十分有满足感，肉多多的，嫩嫩滑滑的，是以前吃的汉堡没有的感觉，多亏珊子大人带我体验没有体验的新世界。这图片的珊子穿搭也是十分可爱小清新，像学院风的一个高中小女孩，十分可爱！后悔当时内页多拍几张惹ovo！'
+            },
+            {
+                name: '照片3',
+                image: 'image/s3.jpg',
+                caption: '这张更久远一些，好像是我们在公交车站等车的时候拍的，我发现珊子这些发型都很好好看呀，真的是一个可爱小女孩，我倒是看上去凶凶的，一副欺负珊子的模样ヾ(*Ő౪Ő*)。珊子还有可爱小动作，半夜整理照片看到了，真的是被萌化了，之前看珊子经常有看我们照片的习惯，我倒是还没彻底理解。直到当我亲自感受了，才明白其中的意义，这些平平淡淡的生活片刻，和自己喜欢的人在一起的记录生活的照片，真的可以治愈自己内心！谢谢珊子大人！'
+            },
+            {
+                name: '照片4',
+                image: 'image/s4.jpg',
+                caption: '这个是很久的时候，和珊子一起去精品店逛帽子，我记得我拍了好几张，不过好几张角度不尽人意，所以拍照技术还需要磨练！（ps我感觉现在的技术比之前好了不少呢！）不过我觉得这张还是十分灵动可爱！一个萌萌的珊子正在看着镜头，虽然这张珊子并每没有化精致的妆容，可是我觉得这张的珊子其实更有生命力更加活跃！能排进我拍给珊子拍的照片数一数二里面！'
+            },
+            {
+                name: '照片5',
+                image: 'image/s5.jpg',
+                caption: '这张的摄影师是鼎鼎大名的林珊子，一个寻常的高三课后，一个乖乖高中珊子摆弄小相机，拍出了不寻常的照片！这张照片珊子拍的小孩感十足，感觉这个珊子完全可以诠释高中生美女萌妹的形象ƪ(˘⌣˘)┐，我要给你的美貌和摄影技术打10000分！！！真的非常可爱！！！'
+            },
+            {
+                name: '照片6',
+                image: 'image/s6.jpg',
+                caption: '这个我记得是我和珊子一起去吃冒烤鸭，然后我拍的，这个时候珊子发型是我最喜欢的，上次南京问珊子的就是这个，不过珊子好像也忘记怎么绑了，现在把这个照片翻出来看，珊子依旧十分萌！越看越后悔，我应该多给珊子拍拍照的，把这个时刻的珊子记录完全，以后我翻看回忆时，不留遗憾的同时还能被萌死ʕᵔᴥᵔʔ'
+            }
+        ];
+        
+        // 创建双倍卡片数组
+        let cards = [...cardData, ...cardData];
+        
+        // 洗牌函数
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+        
+        // 初始化游戏
+        function initGame() {
+            cards = shuffle(cards);
+            game.innerHTML = '';
+            
+            cards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.classList.add('memory-card');
+                cardElement.dataset.name = card.name;
+                cardElement.innerHTML = `
+                    <div class="front-face">
+                        <img src="${card.image}" alt="${card.name}">
+                    </div>
+                    <div class="back-face">♥</div>
+                `;
+                game.appendChild(cardElement);
+                
+                // 添加点击事件
+                cardElement.addEventListener('click', flipCard);
+            });
+            
+            // 播放背景音乐
+            backgroundMusic.play().catch(e => {
+                console.log('自动播放被阻止，需要用户交互后才能播放');
+            });
+        }
+        
+        let hasFlippedCard = false;
+        let lockBoard = false;
+        let firstCard, secondCard;
+        let matchedPairs = 0;
+        
+        function flipCard() {
+            if (lockBoard) return;
+            if (this === firstCard) return;
+            
+            // 尝试播放背景音乐（如果还没有播放）
+            if (backgroundMusic.paused) {
+                backgroundMusic.play().catch(e => {
+                    console.log('播放背景音乐失败:', e);
+                });
+            }
+            
+            flipSound.play();
+            this.classList.add('flip');
+            
+            if (!hasFlippedCard) {
+                // 第一次翻转
+                hasFlippedCard = true;
+                firstCard = this;
+                return;
+            }
+            
+            // 第二次翻转
+            secondCard = this;
+            checkForMatch();
+        }
+        
+        function checkForMatch() {
+            let isMatch = firstCard.dataset.name === secondCard.dataset.name;
+            
+            if (isMatch) {
+                // 配对成功
+                matchSound.play();
+                disableCards();
+            } else {
+                // 配对失败
+                unflipCards();
+            }
+        }
+        function disableCards() {
+            firstCard.classList.add('matched');
+            secondCard.classList.add('matched');
+            firstCard.removeEventListener('click', flipCard);
+            secondCard.removeEventListener('click', flipCard);
+            
+            // 显示配对消息
+            showMatchMessage(firstCard.dataset.name);
+            
+            matchedPairs++;
+            
+            resetBoard();
+        }
+        function unflipCards() {
+            lockBoard = true;
+            
+            setTimeout(() => {
+                firstCard.classList.remove('flip');
+                secondCard.classList.remove('flip');
+                resetBoard();
+            }, 1000);
+        }
+        
+        function resetBoard() {
+            [hasFlippedCard, lockBoard] = [false, false];
+            [firstCard, secondCard] = [null, null];
+        }
+        
+        function showMatchMessage(name) {
+            console.log('=== Showing match message ===');
+            messageTitle.textContent = '回忆杀';
+            
+            // 根据卡片名称获取对应的文案
+            const card = cardData.find(card => card.name === name);
+            const caption = card ? card.caption : '';
+            
+            // 显示文案内容
+            messageContent.innerHTML = `
+                <div style="text-align: left; padding: 20px; max-height: 300px; overflow-y: auto;">
+                    <p style="line-height: 1.6; color: #333;">${caption}</p>
+                </div>
+            `;
+            
+            message.style.display = 'block';
+            overlay.style.display = 'block';
+        }
+        
+
+        function showWinMessage() {
+            console.log('Showing win message...');
+            // 继续播放背景音乐
+            winMessage.style.display = 'block';
+            overlay.style.display = 'block';
+            console.log('Win message shown!');
+        }
+
+        
+        // 消息按钮事件
+        messageBtn.addEventListener('click', () => {
+            message.style.display = 'none';
+            overlay.style.display = 'none';
+            
+            // 检查是否所有卡片都已配对成功
+            const allCards = document.querySelectorAll('.memory-card');
+            const matchedCards = document.querySelectorAll('.memory-card.matched');
+            
+            if (matchedCards.length === allCards.length) {
+                setTimeout(() => {
+                    showWinMessage();
+                }, 500);
+            }
+        });
+        
+        winBtn.addEventListener('click', () => {
+            winMessage.style.display = 'none';
+            overlay.style.display = 'none';
+            birthdayMusic.pause();
+            birthdayMusic.currentTime = 0;
+            // 重置游戏
+            matchedPairs = 0;
+            initGame();
+        });
+        // 笔记本翻页事件
+        document.getElementById('notebook-cover').addEventListener('click', function() {
+            this.style.transform = 'rotateY(-180deg)';
+        });
+        
+        // 图片切换功能
+        const images = ['image/r1.jpeg', 'image/r2.jpeg', 'image/r3.jpeg']; // 图片数组
+        let currentImageIndex = 0;
+        
+        // 更新图片显示
+        function updateImage() {
+            const currentImage = document.getElementById('current-image');
+            currentImage.style.opacity = '0';
+            setTimeout(() => {
+                currentImage.src = images[currentImageIndex];
+                currentImage.style.opacity = '1';
+            }, 250);
+        }
+        
+        // 下一页按钮事件
+        document.getElementById('next-page-btn').addEventListener('click', function() {
+            // 切换到下一张图片
+            currentImageIndex = (currentImageIndex + 1) % images.length;
+            updateImage();
+        });
+        
+        // 上一页按钮事件
+        document.getElementById('prev-page-btn').addEventListener('click', function() {
+            // 切换到上一张图片
+            currentImageIndex = (currentImageIndex - 1 + images.length) % images.length;
+            updateImage();
+        });
+        // 测试胜利按钮
+        const testWinBtn = document.getElementById('test-win-btn');
+        testWinBtn.addEventListener('click', function() {
+            // 检查所有卡片是否都已配对
+            const allCards = document.querySelectorAll('.memory-card');
+            const matchedCards = document.querySelectorAll('.memory-card.matched');
+            
+            if (matchedCards.length === allCards.length) {
+                console.log('Test win button clicked - all cards matched');
+                showWinMessage();
+            } else {
+                console.log('Test win button clicked - not all cards matched yet');
+                alert('请先完成所有卡片配对！');
+            }
+        });
+        
+
+        
+        // 初始化游戏
+        initGame();
+    </script>
+</body>
+</html>
